@@ -22,7 +22,7 @@ namespace BucketTracker;
 public class Function
 {
     IAmazonS3 S3Client { get; set; }
-    ILambdaContext lambdaContext { get; set; }
+    ILambdaContext LambdaContext { get; set; }
 
     private const string ConnectionString = "Data Source=cc-assignment.cpbtourlz8ng.ap-south-1.rds.amazonaws.com, 1433; Initial Catalog=S3BucketLogs; User ID=admin; Password='***';";
     private readonly List<string> ImageTypes = new()
@@ -60,7 +60,7 @@ public class Function
     /// <param name="context">The <see cref="ILambdaContext"/> of the handler</param>
     public async Task FunctionHandler(S3Event evnt, ILambdaContext context)
     {
-        lambdaContext = context;
+        LambdaContext = context;
         var eventRecords = evnt.Records ?? new List<S3Event.S3EventNotificationRecord>();
         string fileName;
         foreach (var record in eventRecords)
@@ -87,15 +87,15 @@ public class Function
 
                 if (ImageTypes.Contains(objectMetaData.Headers.ContentType))
                 {
-                    lambdaContext.Logger.LogError("Image file detected");
+                    LambdaContext.Logger.LogError("Image file detected");
                     await CreateThumbnail(objectResponse.ResponseStream, s3Event.Bucket.Name + "/Thumbnails", fileName.Substring(6));
                 }
             }
             catch (Exception ex)
             {
-                lambdaContext.Logger.LogError($"Error with object {fileName} from bucket {s3Event.Bucket.Name}.");
-                lambdaContext.Logger.LogError(ex.Message);
-                lambdaContext.Logger.LogError(ex.StackTrace);
+                LambdaContext.Logger.LogError($"Error with object {fileName} from bucket {s3Event.Bucket.Name}.");
+                LambdaContext.Logger.LogError(ex.Message);
+                LambdaContext.Logger.LogError(ex.StackTrace);
                 throw;
             }
         }
@@ -134,9 +134,9 @@ public class Function
         }
         catch (Exception e)
         {
-            lambdaContext.Logger.LogError($"Error in UpdateDatabase.");
-            lambdaContext.Logger.LogError(e.Message);
-            lambdaContext.Logger.LogError(e.StackTrace);
+            LambdaContext.Logger.LogError($"Error in UpdateDatabase.");
+            LambdaContext.Logger.LogError(e.Message);
+            LambdaContext.Logger.LogError(e.StackTrace);
         }
     }
 
@@ -167,7 +167,7 @@ public class Function
         }
         catch (Exception e)
         {
-            lambdaContext.Logger.LogLine("Error in CreateThumbnail: " + e.Message);
+            LambdaContext.Logger.LogLine("Error in CreateThumbnail: " + e.Message);
         }
 
         await PutS3Object(bucketName, fileName, thumbnailImageStream);
@@ -198,7 +198,7 @@ public class Function
         }
         catch (Exception ex)
         {
-            lambdaContext.Logger.LogError($"Error in PutS3Object." + ex.Message);
+            LambdaContext.Logger.LogError($"Error in PutS3Object." + ex.Message);
             return false;
         }
     }
