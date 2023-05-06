@@ -20,7 +20,7 @@ namespace EMailNotifier;
 
 public class Function
 {
-    ILambdaContext lambdaContext { get; set; }
+    ILambdaContext? LambdaContext { get; set; }
     private const string ConnectionString = "Data Source=cc-assignment.cpbtourlz8ng.ap-south-1.rds.amazonaws.com, 1433; Initial Catalog=S3BucketLogs; User ID=admin; Password='admin123';";
 
     /// <summary>
@@ -29,10 +29,10 @@ public class Function
     /// <param name="input"></param>
     /// <param name="context"></param>
     /// <returns></returns>
-    public async Task FunctionHandler(object input, ILambdaContext context)
+    public void FunctionHandler(object input, ILambdaContext context)
     {
-        lambdaContext = context;
-        List<EmailData> emailData = GetEntries(DateTime.Now.ToString("yyyy-MM-dd"));
+        LambdaContext = context;
+        List<EmailData> emailData = GetEmailDataFromDB(DateTime.Now.ToString("yyyy-MM-dd"));
 
         if (emailData != null && emailData.Count > 0)
         {
@@ -40,7 +40,12 @@ public class Function
         }
     }
 
-    private List<EmailData> GetEntries(string entryDate)
+    /// <summary>
+    /// Gets the <see cref="List{EmailData}"/> object from database 
+    /// </summary>
+    /// <param name="entryDate">Entry data for which data to be featch</param>
+    /// <returns>Returns <see cref="List{EmailData}"/> object</returns>
+    private List<EmailData> GetEmailDataFromDB(string entryDate)
     {
         List<EmailData> result = new();
 
@@ -59,28 +64,31 @@ public class Function
             SqlDataReader sdr = cmd.ExecuteReader();
             while (sdr.Read())
             {
-                result.Add(new EmailData
-                {
-                    ObjectUri = sdr["Uri"].ToString(),
-                    FileName = sdr["Name"].ToString(),
-                    Size = int.Parse(sdr["Size"].ToString()),
-                    ContentType = sdr["Type"].ToString(),
-                    EntryDateTime = sdr["EntryDateTime"].ToString()
-                });
+                result.Add(new EmailData(
+                    sdr["Uri"].ToString(),
+                    sdr["Name"].ToString(),
+                    int.Parse(sdr["Size"].ToString()),
+                    sdr["Type"].ToString(),
+                    sdr["EntryDateTime"].ToString()
+                ));
             }
             con.Close();
         }
         catch (Exception e)
         {
-            lambdaContext.Logger.LogError($"Error in UpdateDatabase.");
-            lambdaContext.Logger.LogError(e.Message);
-            lambdaContext.Logger.LogError(e.StackTrace);
+            LambdaContext?.Logger.LogError($"Error in UpdateDatabase.");
+            LambdaContext?.Logger.LogError(e.Message);
+            LambdaContext?.Logger.LogError(e.StackTrace);
         }
 
         return result;
     }
 
-    private async Task SendEmail(List<EmailData> emailData)
+    /// <summary>
+    /// Compose email of all data and sends email 
+    /// </summary>
+    /// <param name="emailData"><see cref="List{EmailData}"/> object contains data</param>
+    private void SendEmail(List<EmailData> emailData)
     {
         try
         {
@@ -116,18 +124,23 @@ public class Function
                 },
                 Source = "2022MT93643@wilp.bits-pilani.ac.in",
             });
-            lambdaContext.Logger.LogError("Email send status: " + response.Result);
+            LambdaContext?.Logger.LogError("Email send status: " + response.Result);
         }
         catch (Exception ex)
         {
-            lambdaContext.Logger.LogError("The email was not sent." + ex.Message);
-            lambdaContext.Logger.LogError("Error Stack: " + ex.StackTrace);
+            LambdaContext?.Logger.LogError("The email was not sent." + ex.Message);
+            LambdaContext?.Logger.LogError("Error Stack: " + ex.StackTrace);
         }
     }
 
+    /// <summary>
+    /// Get the HTML body of the email
+    /// </summary>
+    /// <param name="emailData"><see cref="List{EmailData}"/> object contains data</param>
+    /// <returns>Returns html string</returns>
     private string GetHTMLBody(List<EmailData> emailData)
     {
-        StringBuilder emailBody = new StringBuilder();
+        StringBuilder emailBody = new();
         emailBody.Append("<html>");
         emailBody.Append("<head>");
         emailBody.Append("<style>");
@@ -188,8 +201,23 @@ public class Function
         return emailBody.ToString();
     }
 
+    /// <summary>
+    /// Class to hold data from database
+    /// </summary>
     public class EmailData
     {
+        /// <summary>
+        /// Initialize the object of <see cref="EmailData"/>
+        /// </summary>
+        public EmailData(string objectUri, string fileName, int size, string contentType, string entryDateTime)
+        {
+            ObjectUri = objectUri;
+            FileName = fileName;
+            Size = size;
+            ContentType = contentType;
+            EntryDateTime = entryDateTime;
+        }
+
         public string ObjectUri { get; set; }
         public string FileName { get; set; }
         public int Size { get; set; }
