@@ -1,0 +1,11 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/BucketTracker/.vs
+/desktop.ini
+/BucketTracker/desktop.ini
+/BucketTracker/BucketTracker/obj
+/BucketTracker/BucketTracker/bin
+/BucketTracker/BucketTracker/Properties/desktop.ini
+/BucketTracker/BucketTracker/desktop.ini
