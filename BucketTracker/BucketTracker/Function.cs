@@ -24,8 +24,7 @@ public class Function
     IAmazonS3 S3Client { get; set; }
     ILambdaContext lambdaContext { get; set; }
 
-    private const string BucketUriFormat = "s3://{0}/{1}";
-    private const string ConnectionString = "Data Source=cc-assignment.cpbtourlz8ng.ap-south-1.rds.amazonaws.com, 1433; Initial Catalog=S3BucketLogs; User ID=admin; Password='admin123';";
+    private const string ConnectionString = "Data Source=cc-assignment.cpbtourlz8ng.ap-south-1.rds.amazonaws.com, 1433; Initial Catalog=S3BucketLogs; User ID=admin; Password='***';";
     private readonly List<string> ImageTypes = new()
     {
         "image/jpeg",
@@ -57,9 +56,8 @@ public class Function
     /// This method is called for every Lambda invocation. This method takes in an S3 event object and can be used 
     /// to respond to S3 notifications.
     /// </summary>
-    /// <param name="evnt"></param>
-    /// <param name="context"></param>
-    /// <returns></returns>
+    /// <param name="evnt">The <see cref="S3Event"/> of the handler</param>
+    /// <param name="context">The <see cref="ILambdaContext"/> of the handler</param>
     public async Task FunctionHandler(S3Event evnt, ILambdaContext context)
     {
         lambdaContext = context;
@@ -81,7 +79,7 @@ public class Function
 
                 var objectResponse = await S3Client.GetObjectAsync(s3Event.Bucket.Name, fileName);
 
-                UpdateDatabase(string.Format("s3://{0}/{1}", s3Event.Bucket.Name, fileName),
+                UpdateDatabase($"s3://{s3Event.Bucket.Name}/{fileName}",
                                fileName,
                                s3Event.Object.Size,
                                MimeTypesMap.GetExtension(objectResponse.Headers.ContentType),
@@ -103,6 +101,14 @@ public class Function
         }
     }
 
+    /// <summary>
+    /// Updates the databse with new file information
+    /// </summary>
+    /// <param name="uri">Uri of the new object</param>
+    /// <param name="fileName">Name of the new object</param>
+    /// <param name="size">File size in byter of the new object</param>
+    /// <param name="fileType">Type of the new object</param>
+    /// <param name="lastModified">Modified date of the new object</param>
     private void UpdateDatabase(string uri, string fileName, long size, string fileType, string lastModified)
     {
         try
@@ -134,6 +140,12 @@ public class Function
         }
     }
 
+    /// <summary>
+    /// Creates the thumbnail of the uploaded image
+    /// </summary>
+    /// <param name="responseStream"><see cref="Stream"/> of the uploaded iamge</param>
+    /// <param name="bucketName">Bucket name where new image is uploaded</param>
+    /// <param name="fileName">Name of new uploaded image</param>
     private async Task CreateThumbnail(Stream responseStream, string bucketName, string fileName)
     {
 
@@ -161,16 +173,23 @@ public class Function
         await PutS3Object(bucketName, fileName, thumbnailImageStream);
     }
 
-    public async Task<bool> PutS3Object(string bucket, string key, Stream content)
+    /// <summary>
+    /// Puts the object into S3 bucket
+    /// </summary>
+    /// <param name="bucket">Target bucket where the object will be uploaded</param>
+    /// <param name="fileName">Name of the uploading object</param>
+    /// <param name="content"><see cref="Stream"/> of the uploading object</param>
+    /// <returns>Returns the True if object is successfully uploaded to S3 bucket; otherwise False</returns>
+    public async Task<bool> PutS3Object(string bucket, string fileName, Stream content)
     {
         try
         {
-            using (var client = new AmazonS3Client(Amazon.RegionEndpoint.APSouth1))
+            using (var client = new AmazonS3Client(RegionEndpoint.APSouth1))
             {
                 var request = new PutObjectRequest
                 {
                     BucketName = bucket,
-                    Key = key,
+                    Key = fileName,
                     InputStream = content
                 };
                 var response = await client.PutObjectAsync(request);
